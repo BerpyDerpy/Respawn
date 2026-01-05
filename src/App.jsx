@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart, Save } from 'lucide-react';
-
+import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart, Settings, RotateCcw, X } from 'lucide-react';
 
 const SUPABASE_URL = 'https://qfnlgqgxrznvjpghqgvq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbmxncWd4cnpudmpwZ2hxZ3ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MTQ2NzQsImV4cCI6MjA4MzE5MDY3NH0.l1-5XzPJmR9oMDMiey7Ig30tg4DiEGsPZrL-RfPF3qo';
@@ -28,46 +27,138 @@ const SOUNDS = {
 
 // --- DEFAULT STATE ---
 const DEFAULT_GAME_DATA = {
-  level: 1, xp: 0, hp: 100, maxHp: 100,
+  name: 'Player', // Character Display Name
+  level: 1, 
+  xp: 0, 
+  hp: 100, 
+  maxHp: 100,
   stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 },
   habits: []
 };
 
+// --- SETTINGS MODAL COMPONENT ---
+const SettingsModal = ({ isOpen, onClose, gameData, updateGame }) => {
+  if (!isOpen) return null;
+
+  const handleNameChange = (e) => {
+    updateGame({ ...gameData, name: e.target.value });
+  };
+
+  const resetStats = () => {
+    if (!confirm("Reset all stats to 5? This cannot be undone.")) return;
+    updateGame({
+      ...gameData,
+      stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 }
+    });
+  };
+
+  const resetProgress = () => {
+    if (!confirm("Reset Level and XP? You will be Level 1 again.")) return;
+    updateGame({
+      ...gameData,
+      level: 1,
+      xp: 0,
+      maxHp: 100,
+      hp: 100
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 w-full max-w-sm rounded-xl border border-gray-700 p-6 relative shadow-2xl">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white">
+          <X size={20} />
+        </button>
+        
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <Settings size={20} /> Settings
+        </h2>
+
+        {/* 1. Profile Name */}
+        <div className="mb-6">
+          <label className="block text-xs uppercase text-gray-500 font-bold mb-2">Character Name</label>
+          <input 
+            type="text" 
+            value={gameData.name || ''}
+            onChange={handleNameChange}
+            className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-blue-500 outline-none font-bold"
+            placeholder="Enter Name..."
+          />
+        </div>
+
+        <hr className="border-gray-800 mb-6"/>
+
+        {/* 2. Danger Zone Tabs */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 bg-red-900/10 border border-red-900/30 rounded-lg">
+            <div>
+              <p className="font-bold text-red-400 text-sm">Reset Stats</p>
+              <p className="text-[10px] text-gray-500">Sets STR, INT, DEX, CHA to 5.</p>
+            </div>
+            <button onClick={resetStats} className="p-2 bg-red-900/20 hover:bg-red-500 hover:text-white text-red-500 rounded transition-colors">
+              <RotateCcw size={16} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
+            <div>
+              <p className="font-bold text-yellow-400 text-sm">Reset Progress</p>
+              <p className="text-[10px] text-gray-500">Resets Level to 1 and XP to 0.</p>
+            </div>
+            <button onClick={resetProgress} className="p-2 bg-yellow-900/20 hover:bg-yellow-500 hover:text-black text-yellow-500 rounded transition-colors">
+              <RotateCcw size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center text-[10px] text-gray-600">
+          Your Save ID: <span className="font-mono text-gray-400">Connected</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN APP COMPONENT ---
 export default function App() {
-  const [profileName, setProfileName] = useState('');
+  const [profileName, setProfileName] = useState(''); // This is the SAVE SLOT ID
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [gameData, setGameData] = useState(DEFAULT_GAME_DATA);
   const [inputHabit, setInputHabit] = useState('');
   const [selectedStat, setSelectedStat] = useState('STR');
+  
+  // New State for Modal
+  const [showSettings, setShowSettings] = useState(false);
 
   // --- DATABASE FUNCTIONS ---
-
-  const loadProfile = async (name) => {
-    if (!name) return;
+  const loadProfile = async (saveSlotId) => {
+    if (!saveSlotId) return;
     setIsLoading(true);
     
-    // 1. Try to fetch user
+    // Normalize save slot ID (lowercase, no spaces) to avoid duplicate issues
+    const safeId = saveSlotId.trim().toLowerCase();
+
     const { data, error } = await supabase
       .from('saves')
       .select('game_data')
-      .eq('username', name)
+      .eq('username', safeId)
       .single();
 
     if (data) {
-      // User found, load data
-      setGameData(data.game_data);
-      setProfileName(name);
+      setGameData({ ...DEFAULT_GAME_DATA, ...data.game_data }); // Merge to ensure new fields exist
+      setProfileName(safeId);
       setIsLoggedIn(true);
     } else {
-      // User not found, create new
+      // Create new profile
+      const newGameData = { ...DEFAULT_GAME_DATA, name: saveSlotId }; // Default char name = save slot
       const { error: createError } = await supabase
         .from('saves')
-        .insert([{ username: name, game_data: DEFAULT_GAME_DATA }]);
+        .insert([{ username: safeId, game_data: newGameData }]);
         
       if (!createError) {
-        setGameData(DEFAULT_GAME_DATA);
-        setProfileName(name);
+        setGameData(newGameData);
+        setProfileName(safeId);
         setIsLoggedIn(true);
       } else {
         alert("Error creating profile: " + createError.message);
@@ -76,24 +167,17 @@ export default function App() {
     setIsLoading(false);
   };
 
-  const saveGame = async (currentData) => {
-    // We pass data in rather than reading state to avoid stale closure issues
-    if (!profileName) return;
-    
-    await supabase
-      .from('saves')
-      .update({ game_data: currentData })
-      .eq('username', profileName);
+  const updateGame = async (newData) => {
+    setGameData(newData); // Immediate UI update
+    if (profileName) {
+      await supabase
+        .from('saves')
+        .update({ game_data: newData })
+        .eq('username', profileName);
+    }
   };
 
-  // Helper to update state AND save to DB immediately
-  const updateGame = (newData) => {
-    setGameData(newData);
-    saveGame(newData); 
-  };
-
-  // --- GAMEPLAY ACTIONS ---
-
+  // --- GAME ACTIONS ---
   const addHabit = () => {
     if (!inputHabit) return;
     const newHabit = {
@@ -102,7 +186,6 @@ export default function App() {
       stat: selectedStat,
       completed: false
     };
-    
     const newData = { ...gameData, habits: [...gameData.habits, newHabit] };
     updateGame(newData);
     setInputHabit('');
@@ -141,7 +224,6 @@ export default function App() {
       },
       habits: gameData.habits.map(h => h.id === id ? { ...h, completed: true } : h)
     };
-    
     updateGame(newData);
   };
 
@@ -174,29 +256,27 @@ export default function App() {
       xp: newXp,
       habits: gameData.habits.map(h => ({ ...h, completed: false }))
     };
-    
     updateGame(newData);
   };
 
   // --- RENDER ---
-  
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-gray-900 border-2 border-green-500 p-8 rounded-xl text-center">
-          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono">RESPAWN</h1>
-          <p className="text-gray-400 mb-4 text-sm">Enter Profile Name</p>
+        <div className="w-full max-w-sm bg-gray-900 border-2 border-green-500 p-8 rounded-xl text-center shadow-[0_0_30px_rgba(0,255,0,0.1)]">
+          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono tracking-tighter">RESPAWN</h1>
+          <p className="text-gray-400 mb-4 text-xs uppercase tracking-widest">Enter Save Slot ID</p>
           <input 
             className="w-full bg-black border border-gray-700 text-white p-3 rounded mb-4 text-center uppercase tracking-widest focus:border-green-500 outline-none"
-            placeholder="PLAYER 1"
+            placeholder="SLOT_1"
             onKeyDown={(e) => e.key === 'Enter' && loadProfile(e.target.value)}
           />
           <button 
-             className="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded disabled:opacity-50"
+             className="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded disabled:opacity-50 uppercase tracking-widest text-sm"
              onClick={(e) => loadProfile(e.target.previousSibling.value)}
              disabled={isLoading}
           >
-            {isLoading ? "LOADING..." : "START GAME"}
+            {isLoading ? "SYNCING..." : "LOAD GAME"}
           </button>
         </div>
       </div>
@@ -204,35 +284,57 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans pb-20">
+    <div className="min-h-screen bg-black text-white font-sans pb-20 selection:bg-green-500 selection:text-black">
       
+      <SettingsModal 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)} 
+        gameData={gameData} 
+        updateGame={updateGame}
+      />
+
       {/* HEADER */}
       <div className="bg-gray-900 p-6 border-b border-gray-800">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-bold text-white uppercase tracking-widest flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-            {profileName}
-          </h1>
-          <button onClick={() => setIsLoggedIn(false)} className="text-xs text-red-500 flex items-center gap-1">
-            <LogOut size={12}/> Logout
-          </button>
+        <div className="flex justify-between items-start mb-6">
+          <div>
+             <h2 className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Character Profile</h2>
+             <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+               {gameData.name || profileName}
+             </h1>
+          </div>
+          
+          <div className="flex gap-4">
+            <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-white transition-colors">
+              <Settings size={20} />
+            </button>
+            <button onClick={() => setIsLoggedIn(false)} className="text-red-500 hover:text-red-400 transition-colors">
+              <LogOut size={20}/> 
+            </button>
+          </div>
         </div>
 
         {/* BARS */}
-        <div className="space-y-2">
-           <div className="flex items-center gap-2 text-xs font-bold text-red-500">
-             <Heart size={12} fill="currentColor"/> {gameData.hp}/{gameData.maxHp}
-           </div>
-           <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-             <div className="h-full bg-red-600 transition-all" style={{width: `${(gameData.hp/gameData.maxHp)*100}%`}}></div>
+        <div className="space-y-3">
+           {/* HP */}
+           <div>
+             <div className="flex justify-between text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">
+               <span className="flex items-center gap-1"><Heart size={10} fill="currentColor"/> HP</span>
+               <span>{gameData.hp}/{gameData.maxHp}</span>
+             </div>
+             <div className="h-3 bg-gray-950 border border-gray-800 rounded-sm overflow-hidden">
+               <div className="h-full bg-red-600 transition-all duration-300" style={{width: `${(gameData.hp/gameData.maxHp)*100}%`}}></div>
+             </div>
            </div>
            
-           <div className="flex justify-between text-xs font-bold text-green-500 mt-2">
-             <span>Level {gameData.level}</span>
-             <span>{gameData.xp} / {gameData.level * 100} XP</span>
-           </div>
-           <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-             <div className="h-full bg-green-500 transition-all" style={{width: `${(gameData.xp/(gameData.level*100))*100}%`}}></div>
+           {/* XP */}
+           <div>
+             <div className="flex justify-between text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">
+               <span>Level {gameData.level}</span>
+               <span>{gameData.xp} / {gameData.level * 100} XP</span>
+             </div>
+             <div className="h-2 bg-gray-950 border border-gray-800 rounded-sm overflow-hidden">
+               <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${(gameData.xp/(gameData.level*100))*100}%`}}></div>
+             </div>
            </div>
         </div>
 
@@ -241,8 +343,8 @@ export default function App() {
           {Object.entries(gameData.stats).map(([key, val]) => (
             <div key={key} className={`text-center p-2 rounded bg-gray-950 border ${STATS[key].border}`}>
               <div className={`flex justify-center mb-1 ${STATS[key].color}`}>{STATS[key].icon}</div>
-              <div className="text-sm font-bold">{val}</div>
-              <div className="text-[10px] text-gray-500">{key}</div>
+              <div className="text-lg font-black">{val}</div>
+              <div className="text-[10px] text-gray-500 font-bold">{key}</div>
             </div>
           ))}
         </div>
@@ -250,56 +352,56 @@ export default function App() {
 
       {/* QUEST INPUT */}
       <div className="p-4 max-w-md mx-auto">
-        <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-6">
+        <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-6 shadow-lg">
           <input 
-            className="w-full bg-black border border-gray-700 p-2 rounded text-white mb-2 focus:border-green-500 outline-none"
+            className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white mb-3 focus:border-green-500 outline-none font-bold placeholder-gray-600"
             placeholder="New Quest Name..."
             value={inputHabit}
             onChange={(e) => setInputHabit(e.target.value)}
           />
-          <div className="flex gap-2 overflow-x-auto pb-2">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {Object.keys(STATS).map(stat => (
                <button 
                  key={stat}
                  onClick={() => setSelectedStat(stat)}
-                 className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${selectedStat === stat ? 'bg-white text-black border-white' : 'bg-black text-gray-500 border-gray-700'}`}
+                 className={`px-3 py-1 rounded text-[10px] uppercase font-bold border transition-colors ${selectedStat === stat ? 'bg-white text-black border-white' : 'bg-black text-gray-500 border-gray-700'}`}
                >
                  {stat}
                </button>
             ))}
           </div>
-          <button onClick={addHabit} className="w-full mt-2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-sm">
-            <Plus size={16} className="inline mr-1"/> ADD QUEST
+          <button onClick={addHabit} className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-widest shadow-lg shadow-blue-900/20">
+            <Plus size={14} className="inline mr-2"/> Initialize Quest
           </button>
         </div>
 
         {/* HABIT LIST */}
         <div className="space-y-3">
           {gameData.habits.map(habit => (
-            <div key={habit.id} className={`flex items-center justify-between p-4 rounded-lg border ${habit.completed ? 'bg-gray-900/50 border-gray-800 opacity-50' : 'bg-gray-800 border-gray-600'}`}>
-              <div className="flex items-center gap-3">
+            <div key={habit.id} className={`flex items-center justify-between p-4 rounded-lg border transition-all ${habit.completed ? 'bg-gray-900/40 border-gray-800 opacity-50' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}>
+              <div className="flex items-center gap-4">
                 <div className={`p-2 rounded bg-black ${STATS[habit.stat].color}`}>
                   {STATS[habit.stat].icon}
                 </div>
                 <div>
-                  <p className={`font-bold text-sm ${habit.completed ? 'line-through text-gray-500' : 'text-white'}`}>{habit.text}</p>
-                  <p className="text-[10px] text-gray-500">+{STATS[habit.stat].label}</p>
+                  <p className={`font-bold text-sm ${habit.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>{habit.text}</p>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase">+{STATS[habit.stat].label}</p>
                 </div>
               </div>
               
               <div className="flex items-center gap-2">
                  <button 
                    onClick={() => deleteHabit(habit.id)}
-                   className="p-2 text-gray-600 hover:text-red-500"
+                   className="p-2 text-gray-600 hover:text-red-500 transition-colors"
                  >
                    <Trash2 size={16} />
                  </button>
                  <button 
                    onClick={() => completeHabit(habit.id)}
                    disabled={habit.completed}
-                   className={`p-2 rounded border ${habit.completed ? 'bg-green-900 border-green-700 text-green-500' : 'bg-black border-gray-500 text-gray-400 hover:bg-green-600 hover:text-white'}`}
+                   className={`h-10 w-10 flex items-center justify-center rounded border transition-all ${habit.completed ? 'bg-green-900/20 border-green-900 text-green-700' : 'bg-black border-gray-600 text-gray-400 hover:bg-green-500 hover:text-black hover:border-green-400'}`}
                  >
-                   <Check size={18} />
+                   <Check size={18} strokeWidth={3} />
                  </button>
               </div>
             </div>
@@ -309,10 +411,11 @@ export default function App() {
         {/* END DAY */}
         <button 
           onClick={endDay}
-          className="w-full mt-8 py-4 border border-red-900 text-red-500 hover:bg-red-900/20 rounded-lg text-sm font-bold tracking-widest uppercase"
+          className="w-full mt-12 py-5 border border-red-900/50 text-red-500 hover:bg-red-900/10 rounded-xl text-xs font-bold tracking-[0.2em] uppercase transition-all"
         >
-          Sleep (End Day)
+          Sleep
         </button>
+        <p className="text-center mt-4 text-[10px] text-gray-600 font-mono">RESPAWN v1.2 // CONNECTED</p>
       </div>
     </div>
   );
