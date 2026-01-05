@@ -1,410 +1,298 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Zap, BookOpen, Smile, Plus, Check, TrendingUp, Skull, Heart } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart } from 'lucide-react';
 
-// --- Configuration ---
+// --- CONFIGURATION ---
 const STATS = {
-  STR: { label: 'Strength', icon: <Shield size={16} />, color: 'bg-red-600', text: 'text-red-400' },
-  INT: { label: 'Intellect', icon: <BookOpen size={16} />, color: 'bg-blue-600', text: 'text-blue-400' },
-  DEX: { label: 'Dexterity', icon: <Zap size={16} />, color: 'bg-yellow-500', text: 'text-yellow-400' },
-  CHA: { label: 'Charisma', icon: <Smile size={16} />, color: 'bg-purple-600', text: 'text-purple-400' },
+  STR: { label: 'Strength', icon: <Shield size={16} />, color: 'text-red-400', border: 'border-red-500' },
+  INT: { label: 'Intellect', icon: <BookOpen size={16} />, color: 'text-blue-400', border: 'border-blue-500' },
+  DEX: { label: 'Dexterity', icon: <Zap size={16} />, color: 'text-yellow-400', border: 'border-yellow-500' },
+  CHA: { label: 'Charisma', icon: <Smile size={16} />, color: 'text-purple-400', border: 'border-purple-500' },
 };
 
-const LEVEL_BASE_XP = 100;
-const MAX_HP = 100;
-const DAMAGE_PER_MISSED_HABIT = 10;
-
-// --- Sound Effects URLs ---
+// --- AUDIO (Simple Setup) ---
+const playSound = (url) => {
+  const audio = new Audio(url);
+  audio.volume = 0.5;
+  audio.play().catch(e => console.log("Audio ignored (user hasn't interacted yet)"));
+};
 const SOUNDS = {
-  complete: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3', // Retro coin sound
-  levelUp: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // Success fanfare
-  damage: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // Retro negative hit
+  coin: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3',
+  hit: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
 };
 
-// --- Helper Components ---
-const StatBar = ({ label, value, max, colorClass, icon }) => (
-  <div className="mb-3">
-    <div className="flex justify-between text-[10px] uppercase mb-1 font-bold text-gray-400 tracking-wider">
-      <span className="flex items-center gap-2">{icon} {label}</span>
-      <span>{value}</span>
-    </div>
-    <div className="h-3 w-full bg-gray-900 border border-gray-700 rounded-full overflow-hidden">
-      <div 
-        className={`h-full ${colorClass} transition-all duration-500`} 
-        style={{ width: `${Math.min((value / max) * 100, 100)}%` }}
-      />
-    </div>
-  </div>
-);
+// --- MAIN COMPONENT ---
+export default function App() {
+  // 1. STATE: Who is playing?
+  const [profileName, setProfileName] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-const Modal = ({ isOpen, onClose, children }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-      <div className="bg-gray-900 border-2 border-gray-700 p-6 rounded-xl max-w-sm w-full shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-        {children}
-        <button onClick={onClose} className="mt-6 w-full py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-xs uppercase tracking-widest text-gray-400 font-bold">
-          Close Menu
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// --- Main Application ---
-export default function LifeRPG() {
-  // State
-  const [habits, setHabits] = useState([]);
-  const [user, setUser] = useState({
-    name: 'Mahi',
+  // 2. STATE: The "Save File" (User, Habits, etc. all in one place)
+  const [gameData, setGameData] = useState({
     level: 1,
     xp: 0,
-    hp: MAX_HP,
-    stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 }
+    hp: 100,
+    maxHp: 100,
+    stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 },
+    habits: []
   });
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newHabit, setNewHabit] = useState({ name: '', stat: 'STR' });
-  const [history, setHistory] = useState([]);
 
-  // Audio Refs
-  const sfxComplete = useRef(new Audio(SOUNDS.complete));
-  const sfxLevelUp = useRef(new Audio(SOUNDS.levelUp));
-  const sfxDamage = useRef(new Audio(SOUNDS.damage));
+  const [inputHabit, setInputHabit] = useState('');
+  const [selectedStat, setSelectedStat] = useState('STR');
 
-  // Load Data
-  useEffect(() => {
-    const savedUser = JSON.parse(localStorage.getItem('rpg_user'));
-    const savedHabits = JSON.parse(localStorage.getItem('rpg_habits'));
-    const savedHistory = JSON.parse(localStorage.getItem('rpg_history'));
+  // --- SAVE SYSTEM ---
+
+  // Load data when logging in
+  const login = (name) => {
+    if (!name) return;
+    const savedData = localStorage.getItem(`rpg_save_${name}`);
     
-    if (savedUser) setUser(savedUser);
-    if (savedHabits) setHabits(savedHabits);
-    if (savedHistory) setHistory(savedHistory);
-  }, []);
-
-  // Save Data
-  useEffect(() => {
-    localStorage.setItem('rpg_user', JSON.stringify(user));
-    localStorage.setItem('rpg_habits', JSON.stringify(habits));
-    localStorage.setItem('rpg_history', JSON.stringify(history));
-  }, [user, habits, history]);
-
-  // Helper: Play Sound
-  const playSound = (audioRef) => {
-    audioRef.current.currentTime = 0;
-    audioRef.current.play().catch(e => console.log("Audio play failed:", e));
+    if (savedData) {
+      setGameData(JSON.parse(savedData)); // Load existing save
+    } else {
+      // Create new save defaults
+      setGameData({
+        level: 1, xp: 0, hp: 100, maxHp: 100,
+        stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 },
+        habits: []
+      });
+    }
+    setProfileName(name);
+    setIsLoggedIn(true);
   };
 
-  // Logic: Add Habit
+  // Save data automatically whenever gameData changes
+  useEffect(() => {
+    if (isLoggedIn && profileName) {
+      localStorage.setItem(`rpg_save_${profileName}`, JSON.stringify(gameData));
+    }
+  }, [gameData, isLoggedIn, profileName]);
+
+  // --- GAMEPLAY ACTIONS ---
+
   const addHabit = () => {
-    if (!newHabit.name) return;
-    const habit = {
-      id: Date.now(),
-      name: newHabit.name,
-      stat: newHabit.stat,
-      completedToday: false,
-      streak: 0
+    if (!inputHabit) return;
+    const newHabit = {
+      id: Date.now(), // Simple unique ID
+      text: inputHabit,
+      stat: selectedStat,
+      completed: false
     };
-    setHabits([...habits, habit]);
-    setNewHabit({ name: '', stat: 'STR' });
-    setShowAddModal(false);
+    
+    // Update state (Immutably)
+    setGameData(prev => ({
+      ...prev,
+      habits: [...prev.habits, newHabit]
+    }));
+    setInputHabit('');
   };
 
-  // Logic: Complete Habit
+  const deleteHabit = (id) => {
+    if (!confirm("Delete this quest?")) return;
+    setGameData(prev => ({
+      ...prev,
+      habits: prev.habits.filter(h => h.id !== id)
+    }));
+  };
+
   const completeHabit = (id) => {
-    const habitIndex = habits.findIndex(h => h.id === id);
-    if (habits[habitIndex].completedToday) return;
+    const habit = gameData.habits.find(h => h.id === id);
+    if (habit.completed) return; // Already done
 
-    playSound(sfxComplete);
+    playSound(SOUNDS.coin);
 
-    const habit = habits[habitIndex];
-    const statKey = habit.stat;
-    const xpGain = 20;
-    const statGain = 1;
+    // Calculate Level Up
+    let newXp = gameData.xp + 20;
+    let newLevel = gameData.level;
+    const xpNeeded = gameData.level * 100;
 
-    // XP & Level Logic
-    const nextLevelXP = user.level * LEVEL_BASE_XP;
-    let newXP = user.xp + xpGain;
-    let newLevel = user.level;
-    
-    if (newXP >= nextLevelXP) {
-      newXP = newXP - nextLevelXP;
-      newLevel += 1;
-      playSound(sfxLevelUp);
-      alert(`LEVEL UP! You are now level ${newLevel}`);
+    if (newXp >= xpNeeded) {
+      newXp = newXp - xpNeeded;
+      newLevel++;
+      alert("LEVEL UP!");
     }
 
-    // Heal slightly on completion
-    let newHP = Math.min(user.hp + 5, MAX_HP);
-
-    setUser(prev => ({
+    setGameData(prev => ({
       ...prev,
+      xp: newXp,
       level: newLevel,
-      xp: newXP,
-      hp: newHP,
+      hp: Math.min(prev.hp + 5, prev.maxHp), // Heal 5 HP
       stats: {
         ...prev.stats,
-        [statKey]: prev.stats[statKey] + statGain
-      }
+        [habit.stat]: prev.stats[habit.stat] + 1 // Increase Stat
+      },
+      habits: prev.habits.map(h => 
+        h.id === id ? { ...h, completed: true } : h
+      )
     }));
-
-    // Update Habit
-    const newHabits = [...habits];
-    newHabits[habitIndex] = { ...habit, completedToday: true, streak: habit.streak + 1 };
-    setHabits(newHabits);
-
-    // Update Chart History
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
-    setHistory(prev => {
-        const lastEntry = prev[prev.length - 1];
-        if (lastEntry && lastEntry.day === today) {
-            const updated = [...prev];
-            updated[updated.length - 1].xp = (updated[updated.length - 1].xp || 0) + xpGain;
-            return updated;
-        }
-        return [...prev.slice(-6), { day: today, xp: xpGain }];
-    });
   };
 
-  // Logic: End Day (Calculate Damage)
   const endDay = () => {
-    const missedHabits = habits.filter(h => !h.completedToday);
-    const damage = missedHabits.length * DAMAGE_PER_MISSED_HABIT;
+    // 1. Calculate Damage
+    const missed = gameData.habits.filter(h => !h.completed).length;
+    const damage = missed * 10;
+    
+    if (damage > 0) playSound(SOUNDS.hit);
 
-    if (damage > 0) {
-      playSound(sfxDamage);
-      let newHP = user.hp - damage;
-      
-      if (newHP <= 0) {
-        newHP = MAX_HP; // Respawn
-        alert("YOU DIED. You lost a level. Respawning...");
-        setUser(prev => ({ 
-          ...prev, 
-          level: Math.max(1, prev.level - 1), 
-          hp: MAX_HP,
-          xp: 0
-        }));
-      } else {
-        alert(`You took ${damage} damage from missed quests!`);
-        setUser(prev => ({ ...prev, hp: newHP }));
-      }
+    let newHp = gameData.hp - damage;
+    let newLevel = gameData.level;
+    let newXp = gameData.xp;
+
+    if (newHp <= 0) {
+      alert("YOU DIED. Level lost.");
+      newHp = 100;
+      newLevel = Math.max(1, newLevel - 1);
+      newXp = 0;
+    } else if (damage > 0) {
+      alert(`Took ${damage} damage!`);
     } else {
-      alert("Perfect day! Full heal.");
-      setUser(prev => ({ ...prev, hp: MAX_HP }));
+      alert("Perfect day! Fully healed.");
+      newHp = 100;
     }
 
-    // Reset habits for next day
-    const newHabits = habits.map(h => ({ 
-      ...h, 
-      completedToday: false,
-      streak: h.completedToday ? h.streak : 0 // Reset streak if missed
+    // 2. Reset Habits
+    setGameData(prev => ({
+      ...prev,
+      hp: newHp,
+      level: newLevel,
+      xp: newXp,
+      habits: prev.habits.map(h => ({ ...h, completed: false })) // Reset checkboxes
     }));
-    setHabits(newHabits);
   };
 
-  const xpToNextLevel = user.level * LEVEL_BASE_XP;
-  const progressPercent = (user.xp / xpToNextLevel) * 100;
-
-  return (
-    <div className="min-h-screen bg-black text-gray-100 font-sans pb-10">
-      
-      {/* --- HEADER --- */}
-      <div className="bg-gray-900 border-b-2 border-gray-800 p-6 shadow-2xl">
-        <div className="max-w-md mx-auto">
-          <div className="flex justify-between items-end mb-4">
-            <div>
-              <h2 className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Character</h2>
-              <h1 className="text-3xl font-black text-white tracking-tighter drop-shadow-md">{user.name}</h1>
-            </div>
-            <div className="text-right">
-              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Lvl</span>
-              <div className="text-4xl font-black text-yellow-400 leading-none">{user.level}</div>
-            </div>
-          </div>
-
-          {/* HP Bar */}
-          <div className="mb-2">
-            <div className="flex justify-between text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">
-              <span className="flex items-center gap-1"><Heart size={10} fill="currentColor"/> HP</span>
-              <span>{user.hp} / {MAX_HP}</span>
-            </div>
-            <div className="h-4 w-full bg-gray-950 border border-gray-800 rounded-sm relative">
-              <div 
-                className="h-full bg-red-600 transition-all duration-300" 
-                style={{ width: `${(user.hp / MAX_HP) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* XP Bar */}
-          <div className="mb-6">
-            <div className="flex justify-between text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">
-              <span>XP</span>
-              <span>{user.xp} / {xpToNextLevel}</span>
-            </div>
-            <div className="h-2 w-full bg-gray-950 border border-gray-800 rounded-sm">
-              <div 
-                className="h-full bg-green-500 transition-all duration-700"
-                style={{ width: `${progressPercent}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-            {Object.entries(user.stats).map(([key, val]) => (
-              <StatBar 
-                key={key} 
-                label={STATS[key].label} 
-                value={val} 
-                max={50 + (user.level * 5)} 
-                colorClass={STATS[key].color} 
-                icon={STATS[key].icon} 
-              />
-            ))}
-          </div>
+  // --- RENDER HELPERS ---
+  
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-gray-900 border-2 border-green-500 p-8 rounded-xl text-center">
+          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono">RESPAWN SYSTEM</h1>
+          <p className="text-gray-400 mb-4 text-sm">Enter Profile Name</p>
+          <input 
+            className="w-full bg-black border border-gray-700 text-white p-3 rounded mb-4 text-center uppercase tracking-widest focus:border-green-500 outline-none"
+            placeholder="PLAYER 1"
+            onKeyDown={(e) => e.key === 'Enter' && login(e.target.value)}
+          />
+          <button 
+             className="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded"
+             onClick={(e) => login(e.target.previousSibling.value)}
+          >
+            START GAME
+          </button>
         </div>
       </div>
+    );
+  }
 
-      {/* --- CONTENT --- */}
-      <div className="max-w-md mx-auto p-4 space-y-8">
-        
-        {/* Actions */}
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <Zap className="text-yellow-400" size={18}/> Active Quests
-          </h3>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg shadow-blue-900/20 transition-all border border-blue-400"
-          >
-            <Plus size={14} /> Add Quest
+  return (
+    <div className="min-h-screen bg-black text-white font-sans pb-20">
+      
+      {/* HEADER */}
+      <div className="bg-gray-900 p-6 border-b border-gray-800">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-xl font-bold text-white uppercase tracking-widest">{profileName}</h1>
+          <button onClick={() => setIsLoggedIn(false)} className="text-xs text-red-500 flex items-center gap-1">
+            <LogOut size={12}/> Logout
           </button>
         </div>
 
-        {/* Habits List */}
-        <div className="space-y-3">
-          {habits.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed border-gray-800 rounded-xl bg-gray-900/50">
-              <p className="text-gray-500 font-bold text-sm">QUEST LOG EMPTY</p>
-            </div>
-          )}
-          
-          {habits.map((habit) => (
-            <div 
-              key={habit.id} 
-              className={`relative group p-4 rounded-lg border-l-4 transition-all duration-200 ${
-                habit.completedToday 
-                  ? 'bg-gray-900 border-gray-700 border-l-gray-600 opacity-50' 
-                  : 'bg-gray-800 border-gray-700 border-l-yellow-500 hover:bg-gray-750 hover:translate-x-1'
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className={`p-2 rounded bg-gray-900 ${STATS[habit.stat].text}`}>
-                    {STATS[habit.stat].icon}
-                  </div>
-                  <div>
-                    <h4 className={`font-bold text-sm uppercase tracking-wide ${habit.completedToday ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
-                      {habit.name}
-                    </h4>
-                    <span className={`text-[10px] font-bold ${STATS[habit.stat].text}`}>
-                      +{STATS[habit.stat].label}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => completeHabit(habit.id)}
-                  disabled={habit.completedToday}
-                  className={`h-10 w-10 flex items-center justify-center rounded border transition-all ${
-                    habit.completedToday 
-                      ? 'bg-gray-800 border-gray-700 text-gray-600' 
-                      : 'bg-gray-900 border-gray-600 text-gray-400 hover:bg-green-600 hover:text-white hover:border-green-400'
-                  }`}
-                >
-                  <Check size={20} strokeWidth={3} />
-                </button>
-              </div>
-              
-              {habit.streak > 0 && (
-                 <div className="absolute -top-2 -right-2 text-[10px] bg-red-600 border border-red-400 px-2 py-0.5 rounded-full text-white font-bold shadow-sm">
-                   {habit.streak} DAY STREAK
-                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* End Day Button */}
-        <div className="pt-4 border-t border-gray-800">
-           <button 
-             onClick={endDay}
-             className="w-full py-4 bg-red-900/30 hover:bg-red-900/50 border border-red-900/50 hover:border-red-500 text-red-500 rounded-lg text-xs uppercase font-bold tracking-[0.2em] transition-all flex items-center justify-center gap-3 group"
-           >
-             <Skull size={16} className="group-hover:animate-pulse"/> End Day
-           </button>
-           <p className="text-center text-[10px] text-gray-600 mt-2">
-             WARNING: Unfinished quests deal {DAMAGE_PER_MISSED_HABIT} damage.
-           </p>
-        </div>
-
-        {/* Charts */}
-        <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl">
-           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-             <TrendingUp size={14}/> XP History
-           </h3>
-           <div className="h-40 w-full text-[10px]">
-             <ResponsiveContainer width="100%" height="100%">
-               <LineChart data={history.length ? history : [{day: 'Start', xp: 0}]}>
-                 <XAxis dataKey="day" stroke="#525252" tick={{fill: '#525252'}} />
-                 <YAxis stroke="#525252" tick={{fill: '#525252'}} />
-                 <Tooltip 
-                    contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} 
-                    itemStyle={{ color: '#fbbf24' }}
-                 />
-                 <Line type="monotone" dataKey="xp" stroke="#fbbf24" strokeWidth={3} dot={{r: 4, fill: '#fbbf24', strokeWidth: 0}} />
-               </LineChart>
-             </ResponsiveContainer>
+        {/* BARS */}
+        <div className="space-y-2">
+           {/* HP */}
+           <div className="flex items-center gap-2 text-xs font-bold text-red-500">
+             <Heart size={12} fill="currentColor"/> {gameData.hp}/{gameData.maxHp}
+           </div>
+           <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+             <div className="h-full bg-red-600 transition-all" style={{width: `${(gameData.hp/gameData.maxHp)*100}%`}}></div>
+           </div>
+           
+           {/* XP */}
+           <div className="flex justify-between text-xs font-bold text-green-500 mt-2">
+             <span>Level {gameData.level}</span>
+             <span>{gameData.xp} / {gameData.level * 100} XP</span>
+           </div>
+           <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+             <div className="h-full bg-green-500 transition-all" style={{width: `${(gameData.xp/(gameData.level*100))*100}%`}}></div>
            </div>
         </div>
 
-      </div>
-
-      {/* --- MODAL --- */}
-      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)}>
-        <h2 className="text-lg font-bold text-white mb-6 uppercase tracking-wider border-b border-gray-700 pb-2">New Quest</h2>
-        <input 
-          autoFocus
-          type="text" 
-          placeholder="Quest Name..." 
-          className="w-full bg-black border-2 border-gray-800 text-white p-3 rounded-lg mb-4 focus:border-blue-500 outline-none font-bold placeholder-gray-700"
-          value={newHabit.name}
-          onChange={(e) => setNewHabit({...newHabit, name: e.target.value})}
-        />
-        <div className="grid grid-cols-2 gap-2 mb-6">
-          {Object.entries(STATS).map(([key, stat]) => (
-            <button
-              key={key}
-              onClick={() => setNewHabit({...newHabit, stat: key})}
-              className={`p-3 rounded-lg border-2 text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition-all ${
-                newHabit.stat === key 
-                  ? 'bg-gray-800 border-white text-white' 
-                  : 'bg-black border-gray-800 text-gray-500 hover:border-gray-600'
-              }`}
-            >
-              {stat.icon} {stat.label}
-            </button>
+        {/* STATS */}
+        <div className="grid grid-cols-4 gap-2 mt-6">
+          {Object.entries(gameData.stats).map(([key, val]) => (
+            <div key={key} className={`text-center p-2 rounded bg-gray-950 border ${STATS[key].border}`}>
+              <div className={`flex justify-center mb-1 ${STATS[key].color}`}>{STATS[key].icon}</div>
+              <div className="text-sm font-bold">{val}</div>
+              <div className="text-[10px] text-gray-500">{key}</div>
+            </div>
           ))}
         </div>
-        <button 
-          onClick={addHabit}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg uppercase tracking-widest shadow-lg"
-        >
-          Initialize
-        </button>
-      </Modal>
+      </div>
 
+      {/* QUEST INPUT */}
+      <div className="p-4 max-w-md mx-auto">
+        <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-6">
+          <input 
+            className="w-full bg-black border border-gray-700 p-2 rounded text-white mb-2 focus:border-green-500 outline-none"
+            placeholder="New Quest Name..."
+            value={inputHabit}
+            onChange={(e) => setInputHabit(e.target.value)}
+          />
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {Object.keys(STATS).map(stat => (
+               <button 
+                 key={stat}
+                 onClick={() => setSelectedStat(stat)}
+                 className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${selectedStat === stat ? 'bg-white text-black border-white' : 'bg-black text-gray-500 border-gray-700'}`}
+               >
+                 {stat}
+               </button>
+            ))}
+          </div>
+          <button onClick={addHabit} className="w-full mt-2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-sm">
+            <Plus size={16} className="inline mr-1"/> ADD QUEST
+          </button>
+        </div>
+
+        {/* HABIT LIST */}
+        <div className="space-y-3">
+          {gameData.habits.map(habit => (
+            <div key={habit.id} className={`flex items-center justify-between p-4 rounded-lg border ${habit.completed ? 'bg-gray-900/50 border-gray-800 opacity-50' : 'bg-gray-800 border-gray-600'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded bg-black ${STATS[habit.stat].color}`}>
+                  {STATS[habit.stat].icon}
+                </div>
+                <div>
+                  <p className={`font-bold text-sm ${habit.completed ? 'line-through text-gray-500' : 'text-white'}`}>{habit.text}</p>
+                  <p className="text-[10px] text-gray-500">+{STATS[habit.stat].label}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                 <button 
+                   onClick={() => deleteHabit(habit.id)}
+                   className="p-2 text-gray-600 hover:text-red-500"
+                 >
+                   <Trash2 size={16} />
+                 </button>
+                 <button 
+                   onClick={() => completeHabit(habit.id)}
+                   disabled={habit.completed}
+                   className={`p-2 rounded border ${habit.completed ? 'bg-green-900 border-green-700 text-green-500' : 'bg-black border-gray-500 text-gray-400 hover:bg-green-600 hover:text-white'}`}
+                 >
+                   <Check size={18} />
+                 </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* END DAY */}
+        <button 
+          onClick={endDay}
+          className="w-full mt-8 py-4 border border-red-900 text-red-500 hover:bg-red-900/20 rounded-lg text-sm font-bold tracking-widest uppercase"
+        >
+          Sleep (End Day)
+        </button>
+      </div>
     </div>
   );
 }
