@@ -106,6 +106,7 @@ export default function App() {
   const [inputHabit, setInputHabit] = useState('');
   const [selectedStat, setSelectedStat] = useState('STR');
   const [showSettings, setShowSettings] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
 
   // --- DATABASE LOGIC ---
   const loadProfile = async (inputName) => {
@@ -227,7 +228,6 @@ export default function App() {
              </div>
           </div>
           <h1 className="text-3xl font-black text-center text-white mb-2 font-mono tracking-tighter">RESPAWN</h1>
-
           
           <div className="space-y-4">
             <div>
@@ -236,12 +236,17 @@ export default function App() {
                 autoFocus
                 className="w-full bg-black border-2 border-gray-800 text-white p-4 rounded-lg text-lg font-bold placeholder-gray-700 focus:border-green-500 outline-none transition-colors"
                 placeholder="e.g. McPoopyPants"
-                onKeyDown={(e) => e.key === 'Enter' && loadProfile(e.target.value)}
+                // FIX 1: Bind the input to state
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                // FIX 2: Use the state variable for Enter key
+                onKeyDown={(e) => e.key === 'Enter' && loadProfile(usernameInput)}
               />
             </div>
             <button 
                className="w-full bg-green-600 hover:bg-green-500 text-black font-black py-4 rounded-lg uppercase tracking-widest text-sm transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-               onClick={(e) => loadProfile(e.target.previousSibling.firstChild.lastChild.value)}
+               // FIX 3: Simply pass the state variable
+               onClick={() => loadProfile(usernameInput)}
                disabled={isLoading}
             >
               {isLoading ? "LOADING..." : "ENTER WORLD"}
