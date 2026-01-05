@@ -56,7 +56,7 @@ export default function LifeRPG() {
   // State
   const [habits, setHabits] = useState([]);
   const [user, setUser] = useState({
-    name: 'Player 1',
+    name: 'Mahi',
     level: 1,
     xp: 0,
     hp: MAX_HP,
