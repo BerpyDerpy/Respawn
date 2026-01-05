@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart, Save } from 'lucide-react';
+
+
+const SUPABASE_URL = 'https://qfnlgqgxrznvjpghqgvq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbmxncWd4cnpudmpwZ2hxZ3ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MTQ2NzQsImV4cCI6MjA4MzE5MDY3NH0.l1-5XzPJmR9oMDMiey7Ig30tg4DiEGsPZrL-RfPF3qo';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- CONFIGURATION ---
 const STATS = {
@@ -9,98 +15,111 @@ const STATS = {
   CHA: { label: 'Charisma', icon: <Smile size={16} />, color: 'text-purple-400', border: 'border-purple-500' },
 };
 
-// --- AUDIO (Simple Setup) ---
 const playSound = (url) => {
   const audio = new Audio(url);
   audio.volume = 0.5;
-  audio.play().catch(e => console.log("Audio ignored (user hasn't interacted yet)"));
+  audio.play().catch(e => console.log("Audio ignored"));
 };
+
 const SOUNDS = {
   coin: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3',
   hit: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
 };
 
-// --- MAIN COMPONENT ---
+// --- DEFAULT STATE ---
+const DEFAULT_GAME_DATA = {
+  level: 1, xp: 0, hp: 100, maxHp: 100,
+  stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 },
+  habits: []
+};
+
 export default function App() {
-  // 1. STATE: Who is playing?
   const [profileName, setProfileName] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  // 2. STATE: The "Save File" (User, Habits, etc. all in one place)
-  const [gameData, setGameData] = useState({
-    level: 1,
-    xp: 0,
-    hp: 100,
-    maxHp: 100,
-    stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 },
-    habits: []
-  });
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [gameData, setGameData] = useState(DEFAULT_GAME_DATA);
   const [inputHabit, setInputHabit] = useState('');
   const [selectedStat, setSelectedStat] = useState('STR');
 
-  // --- SAVE SYSTEM ---
+  // --- DATABASE FUNCTIONS ---
 
-  // Load data when logging in
-  const login = (name) => {
+  const loadProfile = async (name) => {
     if (!name) return;
-    const savedData = localStorage.getItem(`rpg_save_${name}`);
+    setIsLoading(true);
     
-    if (savedData) {
-      setGameData(JSON.parse(savedData)); // Load existing save
+    // 1. Try to fetch user
+    const { data, error } = await supabase
+      .from('saves')
+      .select('game_data')
+      .eq('username', name)
+      .single();
+
+    if (data) {
+      // User found, load data
+      setGameData(data.game_data);
+      setProfileName(name);
+      setIsLoggedIn(true);
     } else {
-      // Create new save defaults
-      setGameData({
-        level: 1, xp: 0, hp: 100, maxHp: 100,
-        stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 },
-        habits: []
-      });
+      // User not found, create new
+      const { error: createError } = await supabase
+        .from('saves')
+        .insert([{ username: name, game_data: DEFAULT_GAME_DATA }]);
+        
+      if (!createError) {
+        setGameData(DEFAULT_GAME_DATA);
+        setProfileName(name);
+        setIsLoggedIn(true);
+      } else {
+        alert("Error creating profile: " + createError.message);
+      }
     }
-    setProfileName(name);
-    setIsLoggedIn(true);
+    setIsLoading(false);
   };
 
-  // Save data automatically whenever gameData changes
-  useEffect(() => {
-    if (isLoggedIn && profileName) {
-      localStorage.setItem(`rpg_save_${profileName}`, JSON.stringify(gameData));
-    }
-  }, [gameData, isLoggedIn, profileName]);
+  const saveGame = async (currentData) => {
+    // We pass data in rather than reading state to avoid stale closure issues
+    if (!profileName) return;
+    
+    await supabase
+      .from('saves')
+      .update({ game_data: currentData })
+      .eq('username', profileName);
+  };
+
+  // Helper to update state AND save to DB immediately
+  const updateGame = (newData) => {
+    setGameData(newData);
+    saveGame(newData); 
+  };
 
   // --- GAMEPLAY ACTIONS ---
 
   const addHabit = () => {
     if (!inputHabit) return;
     const newHabit = {
-      id: Date.now(), // Simple unique ID
+      id: Date.now(),
       text: inputHabit,
       stat: selectedStat,
       completed: false
     };
     
-    // Update state (Immutably)
-    setGameData(prev => ({
-      ...prev,
-      habits: [...prev.habits, newHabit]
-    }));
+    const newData = { ...gameData, habits: [...gameData.habits, newHabit] };
+    updateGame(newData);
     setInputHabit('');
   };
 
   const deleteHabit = (id) => {
     if (!confirm("Delete this quest?")) return;
-    setGameData(prev => ({
-      ...prev,
-      habits: prev.habits.filter(h => h.id !== id)
-    }));
+    const newData = { ...gameData, habits: gameData.habits.filter(h => h.id !== id) };
+    updateGame(newData);
   };
 
   const completeHabit = (id) => {
     const habit = gameData.habits.find(h => h.id === id);
-    if (habit.completed) return; // Already done
+    if (habit.completed) return;
 
     playSound(SOUNDS.coin);
 
-    // Calculate Level Up
     let newXp = gameData.xp + 20;
     let newLevel = gameData.level;
     const xpNeeded = gameData.level * 100;
@@ -111,23 +130,22 @@ export default function App() {
       alert("LEVEL UP!");
     }
 
-    setGameData(prev => ({
-      ...prev,
+    const newData = {
+      ...gameData,
       xp: newXp,
       level: newLevel,
-      hp: Math.min(prev.hp + 5, prev.maxHp), // Heal 5 HP
+      hp: Math.min(gameData.hp + 5, gameData.maxHp),
       stats: {
-        ...prev.stats,
-        [habit.stat]: prev.stats[habit.stat] + 1 // Increase Stat
+        ...gameData.stats,
+        [habit.stat]: gameData.stats[habit.stat] + 1
       },
-      habits: prev.habits.map(h => 
-        h.id === id ? { ...h, completed: true } : h
-      )
-    }));
+      habits: gameData.habits.map(h => h.id === id ? { ...h, completed: true } : h)
+    };
+    
+    updateGame(newData);
   };
 
   const endDay = () => {
-    // 1. Calculate Damage
     const missed = gameData.habits.filter(h => !h.completed).length;
     const damage = missed * 10;
     
@@ -149,34 +167,36 @@ export default function App() {
       newHp = 100;
     }
 
-    // 2. Reset Habits
-    setGameData(prev => ({
-      ...prev,
+    const newData = {
+      ...gameData,
       hp: newHp,
       level: newLevel,
       xp: newXp,
-      habits: prev.habits.map(h => ({ ...h, completed: false })) // Reset checkboxes
-    }));
+      habits: gameData.habits.map(h => ({ ...h, completed: false }))
+    };
+    
+    updateGame(newData);
   };
 
-  // --- RENDER HELPERS ---
+  // --- RENDER ---
   
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-gray-900 border-2 border-green-500 p-8 rounded-xl text-center">
-          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono">RESPAWN SYSTEM</h1>
+          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono">RESPAWN ONLINE</h1>
           <p className="text-gray-400 mb-4 text-sm">Enter Profile Name</p>
           <input 
             className="w-full bg-black border border-gray-700 text-white p-3 rounded mb-4 text-center uppercase tracking-widest focus:border-green-500 outline-none"
             placeholder="PLAYER 1"
-            onKeyDown={(e) => e.key === 'Enter' && login(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && loadProfile(e.target.value)}
           />
           <button 
-             className="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded"
-             onClick={(e) => login(e.target.previousSibling.value)}
+             className="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded disabled:opacity-50"
+             onClick={(e) => loadProfile(e.target.previousSibling.value)}
+             disabled={isLoading}
           >
-            START GAME
+            {isLoading ? "LOADING..." : "START GAME"}
           </button>
         </div>
       </div>
@@ -189,7 +209,10 @@ export default function App() {
       {/* HEADER */}
       <div className="bg-gray-900 p-6 border-b border-gray-800">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-bold text-white uppercase tracking-widest">{profileName}</h1>
+          <h1 className="text-xl font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            {profileName}
+          </h1>
           <button onClick={() => setIsLoggedIn(false)} className="text-xs text-red-500 flex items-center gap-1">
             <LogOut size={12}/> Logout
           </button>
@@ -197,7 +220,6 @@ export default function App() {
 
         {/* BARS */}
         <div className="space-y-2">
-           {/* HP */}
            <div className="flex items-center gap-2 text-xs font-bold text-red-500">
              <Heart size={12} fill="currentColor"/> {gameData.hp}/{gameData.maxHp}
            </div>
@@ -205,7 +227,6 @@ export default function App() {
              <div className="h-full bg-red-600 transition-all" style={{width: `${(gameData.hp/gameData.maxHp)*100}%`}}></div>
            </div>
            
-           {/* XP */}
            <div className="flex justify-between text-xs font-bold text-green-500 mt-2">
              <span>Level {gameData.level}</span>
              <span>{gameData.xp} / {gameData.level * 100} XP</span>
