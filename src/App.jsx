@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart, Settings, RotateCcw, X } from 'lucide-react';
+import { Shield, Zap, BookOpen, Smile, Plus, Check, Trash2, LogOut, Heart, Settings, RotateCcw, X, User } from 'lucide-react';
 
+// --- 1. SUPABASE CONFIG ---
 const SUPABASE_URL = 'https://qfnlgqgxrznvjpghqgvq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbmxncWd4cnpudmpwZ2hxZ3ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MTQ2NzQsImV4cCI6MjA4MzE5MDY3NH0.l1-5XzPJmR9oMDMiey7Ig30tg4DiEGsPZrL-RfPF3qo';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -25,9 +26,8 @@ const SOUNDS = {
   hit: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
 };
 
-// --- DEFAULT STATE ---
 const DEFAULT_GAME_DATA = {
-  name: 'Player', // Character Display Name
+  name: 'Player',
   level: 1, 
   xp: 0, 
   hp: 100, 
@@ -36,32 +36,9 @@ const DEFAULT_GAME_DATA = {
   habits: []
 };
 
-// --- SETTINGS MODAL COMPONENT ---
+// --- SETTINGS MODAL ---
 const SettingsModal = ({ isOpen, onClose, gameData, updateGame }) => {
   if (!isOpen) return null;
-
-  const handleNameChange = (e) => {
-    updateGame({ ...gameData, name: e.target.value });
-  };
-
-  const resetStats = () => {
-    if (!confirm("Reset all stats to 5? This cannot be undone.")) return;
-    updateGame({
-      ...gameData,
-      stats: { STR: 5, INT: 5, DEX: 5, CHA: 5 }
-    });
-  };
-
-  const resetProgress = () => {
-    if (!confirm("Reset Level and XP? You will be Level 1 again.")) return;
-    updateGame({
-      ...gameData,
-      level: 1,
-      xp: 0,
-      maxHp: 100,
-      hp: 100
-    });
-  };
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -74,28 +51,30 @@ const SettingsModal = ({ isOpen, onClose, gameData, updateGame }) => {
           <Settings size={20} /> Settings
         </h2>
 
-        {/* 1. Profile Name */}
+        {/* Name Edit */}
         <div className="mb-6">
           <label className="block text-xs uppercase text-gray-500 font-bold mb-2">Character Name</label>
           <input 
             type="text" 
             value={gameData.name || ''}
-            onChange={handleNameChange}
+            onChange={(e) => updateGame({ ...gameData, name: e.target.value })}
             className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-blue-500 outline-none font-bold"
-            placeholder="Enter Name..."
           />
         </div>
 
         <hr className="border-gray-800 mb-6"/>
 
-        {/* 2. Danger Zone Tabs */}
+        {/* Resets */}
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 bg-red-900/10 border border-red-900/30 rounded-lg">
             <div>
               <p className="font-bold text-red-400 text-sm">Reset Stats</p>
-              <p className="text-[10px] text-gray-500">Sets STR, INT, DEX, CHA to 5.</p>
+              <p className="text-[10px] text-gray-500">Sets all stats to 5</p>
             </div>
-            <button onClick={resetStats} className="p-2 bg-red-900/20 hover:bg-red-500 hover:text-white text-red-500 rounded transition-colors">
+            <button 
+              onClick={() => confirm("Reset stats?") && updateGame({...gameData, stats: {STR:5, INT:5, DEX:5, CHA:5}})} 
+              className="p-2 bg-red-900/20 text-red-500 rounded hover:bg-red-500 hover:text-white"
+            >
               <RotateCcw size={16} />
             </button>
           </div>
@@ -103,98 +82,85 @@ const SettingsModal = ({ isOpen, onClose, gameData, updateGame }) => {
           <div className="flex items-center justify-between p-3 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
             <div>
               <p className="font-bold text-yellow-400 text-sm">Reset Progress</p>
-              <p className="text-[10px] text-gray-500">Resets Level to 1 and XP to 0.</p>
+              <p className="text-[10px] text-gray-500">Back to Level 1</p>
             </div>
-            <button onClick={resetProgress} className="p-2 bg-yellow-900/20 hover:bg-yellow-500 hover:text-black text-yellow-500 rounded transition-colors">
+            <button 
+              onClick={() => confirm("Reset Level?") && updateGame({...gameData, level: 1, xp: 0, hp: 100, maxHp: 100})} 
+              className="p-2 bg-yellow-900/20 text-yellow-500 rounded hover:bg-yellow-500 hover:text-black"
+            >
               <RotateCcw size={16} />
             </button>
           </div>
-        </div>
-
-        <div className="mt-6 text-center text-[10px] text-gray-600">
-          Your Save ID: <span className="font-mono text-gray-400">Connected</span>
         </div>
       </div>
     </div>
   );
 };
 
-// --- MAIN APP COMPONENT ---
+// --- MAIN APP ---
 export default function App() {
-  const [profileName, setProfileName] = useState(''); // This is the SAVE SLOT ID
+  const [profileId, setProfileId] = useState(''); // The database ID (lowercase)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [gameData, setGameData] = useState(DEFAULT_GAME_DATA);
   const [inputHabit, setInputHabit] = useState('');
   const [selectedStat, setSelectedStat] = useState('STR');
-  
-  // New State for Modal
   const [showSettings, setShowSettings] = useState(false);
 
-  // --- DATABASE FUNCTIONS ---
-  const loadProfile = async (saveSlotId) => {
-    if (!saveSlotId) return;
+  // --- DATABASE LOGIC ---
+  const loadProfile = async (inputName) => {
+    if (!inputName) return;
     setIsLoading(true);
     
-    // Normalize save slot ID (lowercase, no spaces) to avoid duplicate issues
-    const safeId = saveSlotId.trim().toLowerCase();
+    // Human Friendly Logic: 
+    // ID = "mahit hazaris" (lowercase, unique key)
+    // Name = "Mahit Hazaris" (display name)
+    const dbId = inputName.trim().toLowerCase(); 
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('saves')
       .select('game_data')
-      .eq('username', safeId)
+      .eq('username', dbId)
       .single();
 
     if (data) {
-      setGameData({ ...DEFAULT_GAME_DATA, ...data.game_data }); // Merge to ensure new fields exist
-      setProfileName(safeId);
-      setIsLoggedIn(true);
+      // Existing User
+      setGameData({ ...DEFAULT_GAME_DATA, ...data.game_data });
     } else {
-      // Create new profile
-      const newGameData = { ...DEFAULT_GAME_DATA, name: saveSlotId }; // Default char name = save slot
-      const { error: createError } = await supabase
+      // New User - Use their input as the character name
+      const newGameData = { ...DEFAULT_GAME_DATA, name: inputName }; 
+      await supabase
         .from('saves')
-        .insert([{ username: safeId, game_data: newGameData }]);
-        
-      if (!createError) {
-        setGameData(newGameData);
-        setProfileName(safeId);
-        setIsLoggedIn(true);
-      } else {
-        alert("Error creating profile: " + createError.message);
-      }
+        .insert([{ username: dbId, game_data: newGameData }]);
+      setGameData(newGameData);
     }
+    
+    setProfileId(dbId);
+    setIsLoggedIn(true);
     setIsLoading(false);
   };
 
   const updateGame = async (newData) => {
-    setGameData(newData); // Immediate UI update
-    if (profileName) {
-      await supabase
-        .from('saves')
-        .update({ game_data: newData })
-        .eq('username', profileName);
+    setGameData(newData);
+    if (profileId) {
+      await supabase.from('saves').update({ game_data: newData }).eq('username', profileId);
     }
   };
 
-  // --- GAME ACTIONS ---
+  // --- ACTIONS ---
   const addHabit = () => {
     if (!inputHabit) return;
-    const newHabit = {
-      id: Date.now(),
-      text: inputHabit,
-      stat: selectedStat,
-      completed: false
-    };
-    const newData = { ...gameData, habits: [...gameData.habits, newHabit] };
-    updateGame(newData);
+    updateGame({ 
+      ...gameData, 
+      habits: [...gameData.habits, { id: Date.now(), text: inputHabit, stat: selectedStat, completed: false }] 
+    });
     setInputHabit('');
   };
 
   const deleteHabit = (id) => {
-    if (!confirm("Delete this quest?")) return;
-    const newData = { ...gameData, habits: gameData.habits.filter(h => h.id !== id) };
-    updateGame(newData);
+    if (confirm("Delete this quest?")) {
+      updateGame({ ...gameData, habits: gameData.habits.filter(h => h.id !== id) });
+    }
   };
 
   const completeHabit = (id) => {
@@ -202,220 +168,201 @@ export default function App() {
     if (habit.completed) return;
 
     playSound(SOUNDS.coin);
+    
+    let nextData = { ...gameData };
+    nextData.habits = nextData.habits.map(h => h.id === id ? { ...h, completed: true } : h);
+    
+    // Stats & XP
+    nextData.xp += 20;
+    nextData.hp = Math.min(nextData.hp + 5, nextData.maxHp);
+    nextData.stats[habit.stat] += 1;
 
-    let newXp = gameData.xp + 20;
-    let newLevel = gameData.level;
-    const xpNeeded = gameData.level * 100;
-
-    if (newXp >= xpNeeded) {
-      newXp = newXp - xpNeeded;
-      newLevel++;
-      alert("LEVEL UP!");
+    // Level Up Check
+    const xpNeeded = nextData.level * 100;
+    if (nextData.xp >= xpNeeded) {
+      nextData.xp -= xpNeeded;
+      nextData.level += 1;
+      alert(`LEVEL UP! Welcome to level ${nextData.level}`);
     }
-
-    const newData = {
-      ...gameData,
-      xp: newXp,
-      level: newLevel,
-      hp: Math.min(gameData.hp + 5, gameData.maxHp),
-      stats: {
-        ...gameData.stats,
-        [habit.stat]: gameData.stats[habit.stat] + 1
-      },
-      habits: gameData.habits.map(h => h.id === id ? { ...h, completed: true } : h)
-    };
-    updateGame(newData);
+    
+    updateGame(nextData);
   };
 
   const endDay = () => {
-    const missed = gameData.habits.filter(h => !h.completed).length;
-    const damage = missed * 10;
+    const damage = gameData.habits.filter(h => !h.completed).length * 10;
     
-    if (damage > 0) playSound(SOUNDS.hit);
-
-    let newHp = gameData.hp - damage;
-    let newLevel = gameData.level;
-    let newXp = gameData.xp;
-
-    if (newHp <= 0) {
-      alert("YOU DIED. Level lost.");
-      newHp = 100;
-      newLevel = Math.max(1, newLevel - 1);
-      newXp = 0;
-    } else if (damage > 0) {
-      alert(`Took ${damage} damage!`);
+    if (damage > 0) {
+      playSound(SOUNDS.hit);
+      alert(`You took ${damage} damage from missed quests!`);
     } else {
-      alert("Perfect day! Fully healed.");
-      newHp = 100;
+      alert("Perfect day! Full heal.");
     }
 
-    const newData = {
-      ...gameData,
-      hp: newHp,
-      level: newLevel,
-      xp: newXp,
-      habits: gameData.habits.map(h => ({ ...h, completed: false }))
-    };
-    updateGame(newData);
+    let nextData = { ...gameData };
+    nextData.hp -= damage;
+
+    // Death Logic
+    if (nextData.hp <= 0) {
+      alert("YOU DIED. Respawning at previous level...");
+      nextData.hp = 100;
+      nextData.level = Math.max(1, nextData.level - 1);
+      nextData.xp = 0;
+    } else if (damage === 0) {
+      nextData.hp = 100;
+    }
+
+    // Reset Habits
+    nextData.habits = nextData.habits.map(h => ({ ...h, completed: false }));
+    updateGame(nextData);
   };
 
   // --- RENDER ---
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-gray-900 border-2 border-green-500 p-8 rounded-xl text-center shadow-[0_0_30px_rgba(0,255,0,0.1)]">
-          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono tracking-tighter">RESPAWN</h1>
-          <p className="text-gray-400 mb-4 text-xs uppercase tracking-widest">Enter Save Slot ID</p>
-          <input 
-            className="w-full bg-black border border-gray-700 text-white p-3 rounded mb-4 text-center uppercase tracking-widest focus:border-green-500 outline-none"
-            placeholder="SLOT_1"
-            onKeyDown={(e) => e.key === 'Enter' && loadProfile(e.target.value)}
-          />
-          <button 
-             className="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded disabled:opacity-50 uppercase tracking-widest text-sm"
-             onClick={(e) => loadProfile(e.target.previousSibling.value)}
-             disabled={isLoading}
-          >
-            {isLoading ? "SYNCING..." : "LOAD GAME"}
-          </button>
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <div className="w-full max-w-sm bg-gray-900 border-2 border-green-600 p-8 rounded-xl shadow-[0_0_40px_rgba(34,197,94,0.2)]">
+          <div className="flex justify-center mb-6">
+             <div className="p-4 bg-green-900/20 rounded-full border border-green-500/50">
+               <User size={32} className="text-green-500" />
+             </div>
+          </div>
+          <h1 className="text-3xl font-black text-center text-white mb-2 font-mono tracking-tighter">RESPAWN</h1>
+
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] uppercase font-bold text-gray-500 ml-1">Who are you?</label>
+              <input 
+                autoFocus
+                className="w-full bg-black border-2 border-gray-800 text-white p-4 rounded-lg text-lg font-bold placeholder-gray-700 focus:border-green-500 outline-none transition-colors"
+                placeholder="e.g. McPoopyPants"
+                onKeyDown={(e) => e.key === 'Enter' && loadProfile(e.target.value)}
+              />
+            </div>
+            <button 
+               className="w-full bg-green-600 hover:bg-green-500 text-black font-black py-4 rounded-lg uppercase tracking-widest text-sm transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+               onClick={(e) => loadProfile(e.target.previousSibling.firstChild.lastChild.value)}
+               disabled={isLoading}
+            >
+              {isLoading ? "LOADING..." : "ENTER WORLD"}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans pb-20 selection:bg-green-500 selection:text-black">
-      
+    <div className="min-h-screen bg-black text-white font-sans pb-24 selection:bg-green-500 selection:text-black">
       <SettingsModal 
         isOpen={showSettings} 
         onClose={() => setShowSettings(false)} 
         gameData={gameData} 
-        updateGame={updateGame}
+        updateGame={updateGame} 
       />
 
-      {/* HEADER */}
-      <div className="bg-gray-900 p-6 border-b border-gray-800">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-             <h2 className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Character Profile</h2>
-             <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-               {gameData.name || profileName}
-             </h1>
-          </div>
-          
-          <div className="flex gap-4">
-            <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-white transition-colors">
+      {/* HERO SECTION */}
+      <div className="bg-gradient-to-b from-gray-900 to-black border-b border-gray-800 p-6 sticky top-0 z-10 backdrop-blur-md bg-opacity-80">
+        <div className="max-w-md mx-auto">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+               <h1 className="text-2xl font-black text-white tracking-tighter">{gameData.name}</h1>
+               <div className="flex items-center gap-2 text-xs font-bold text-green-500 mt-1">
+                 <span className="bg-green-900/30 px-2 py-0.5 rounded border border-green-900/50">LVL {gameData.level}</span>
+               </div>
+            </div>
+            <button onClick={() => setShowSettings(true)} className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 text-gray-400">
               <Settings size={20} />
             </button>
-            <button onClick={() => setIsLoggedIn(false)} className="text-red-500 hover:text-red-400 transition-colors">
-              <LogOut size={20}/> 
-            </button>
           </div>
-        </div>
 
-        {/* BARS */}
-        <div className="space-y-3">
-           {/* HP */}
-           <div>
-             <div className="flex justify-between text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">
-               <span className="flex items-center gap-1"><Heart size={10} fill="currentColor"/> HP</span>
-               <span>{gameData.hp}/{gameData.maxHp}</span>
+          {/* STATUS BARS */}
+          <div className="space-y-4">
+             {/* HP */}
+             <div className="relative h-4 bg-gray-900 rounded-full overflow-hidden border border-gray-800">
+               <div className="absolute top-0 left-0 h-full bg-red-600 transition-all duration-300" style={{width: `${(gameData.hp/gameData.maxHp)*100}%`}}></div>
+               <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md tracking-wider">
+                 HP {gameData.hp}/{gameData.maxHp}
+               </div>
              </div>
-             <div className="h-3 bg-gray-950 border border-gray-800 rounded-sm overflow-hidden">
-               <div className="h-full bg-red-600 transition-all duration-300" style={{width: `${(gameData.hp/gameData.maxHp)*100}%`}}></div>
+             
+             {/* XP */}
+             <div className="relative h-2 bg-gray-900 rounded-full overflow-hidden border border-gray-800">
+               <div className="absolute top-0 left-0 h-full bg-green-500 transition-all duration-500" style={{width: `${(gameData.xp/(gameData.level*100))*100}%`}}></div>
              </div>
-           </div>
-           
-           {/* XP */}
-           <div>
-             <div className="flex justify-between text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">
-               <span>Level {gameData.level}</span>
-               <span>{gameData.xp} / {gameData.level * 100} XP</span>
-             </div>
-             <div className="h-2 bg-gray-950 border border-gray-800 rounded-sm overflow-hidden">
-               <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${(gameData.xp/(gameData.level*100))*100}%`}}></div>
-             </div>
-           </div>
-        </div>
+          </div>
 
-        {/* STATS */}
-        <div className="grid grid-cols-4 gap-2 mt-6">
-          {Object.entries(gameData.stats).map(([key, val]) => (
-            <div key={key} className={`text-center p-2 rounded bg-gray-950 border ${STATS[key].border}`}>
-              <div className={`flex justify-center mb-1 ${STATS[key].color}`}>{STATS[key].icon}</div>
-              <div className="text-lg font-black">{val}</div>
-              <div className="text-[10px] text-gray-500 font-bold">{key}</div>
-            </div>
-          ))}
+          {/* STATS GRID */}
+          <div className="grid grid-cols-4 gap-2 mt-6">
+            {Object.entries(gameData.stats).map(([key, val]) => (
+              <div key={key} className={`text-center p-2 rounded-lg bg-gray-900/50 border ${STATS[key].border}`}>
+                <div className={`flex justify-center mb-1 ${STATS[key].color}`}>{STATS[key].icon}</div>
+                <div className="text-lg font-black">{val}</div>
+                <div className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{key}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* QUEST INPUT */}
-      <div className="p-4 max-w-md mx-auto">
-        <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-6 shadow-lg">
+      {/* QUESTS */}
+      <div className="max-w-md mx-auto p-4 space-y-6">
+        <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-xl">
           <input 
-            className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white mb-3 focus:border-green-500 outline-none font-bold placeholder-gray-600"
+            className="w-full bg-black border-2 border-gray-800 p-3 rounded-lg text-white mb-3 focus:border-green-500 outline-none font-bold placeholder-gray-600 transition-colors"
             placeholder="New Quest Name..."
             value={inputHabit}
             onChange={(e) => setInputHabit(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addHabit()}
           />
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
             {Object.keys(STATS).map(stat => (
                <button 
                  key={stat}
                  onClick={() => setSelectedStat(stat)}
-                 className={`px-3 py-1 rounded text-[10px] uppercase font-bold border transition-colors ${selectedStat === stat ? 'bg-white text-black border-white' : 'bg-black text-gray-500 border-gray-700'}`}
+                 className={`px-3 py-1.5 rounded text-[10px] uppercase font-bold border transition-all ${selectedStat === stat ? 'bg-white text-black border-white shadow-lg scale-105' : 'bg-black text-gray-500 border-gray-700'}`}
                >
                  {stat}
                </button>
             ))}
           </div>
-          <button onClick={addHabit} className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-widest shadow-lg shadow-blue-900/20">
+          <button onClick={addHabit} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-widest shadow-lg shadow-blue-900/20 active:translate-y-0.5 transition-all">
             <Plus size={14} className="inline mr-2"/> Initialize Quest
           </button>
         </div>
 
-        {/* HABIT LIST */}
         <div className="space-y-3">
+          {gameData.habits.length === 0 && <div className="text-center text-gray-600 text-sm py-8">No active quests.</div>}
+          
           {gameData.habits.map(habit => (
-            <div key={habit.id} className={`flex items-center justify-between p-4 rounded-lg border transition-all ${habit.completed ? 'bg-gray-900/40 border-gray-800 opacity-50' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}>
+            <div key={habit.id} className={`flex items-center justify-between p-4 rounded-xl border-l-4 transition-all duration-200 ${habit.completed ? 'bg-gray-900/30 border-gray-800 border-l-gray-600 opacity-50' : 'bg-gray-900 border-gray-800 border-l-blue-500 hover:translate-x-1'}`}>
               <div className="flex items-center gap-4">
-                <div className={`p-2 rounded bg-black ${STATS[habit.stat].color}`}>
+                <div className={`p-2 rounded-lg bg-black ${STATS[habit.stat].color}`}>
                   {STATS[habit.stat].icon}
                 </div>
                 <div>
                   <p className={`font-bold text-sm ${habit.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>{habit.text}</p>
-                  <p className="text-[10px] font-bold text-gray-500 uppercase">+{STATS[habit.stat].label}</p>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">+{STATS[habit.stat].label}</p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                 <button 
-                   onClick={() => deleteHabit(habit.id)}
-                   className="p-2 text-gray-600 hover:text-red-500 transition-colors"
-                 >
-                   <Trash2 size={16} />
-                 </button>
+              <div className="flex items-center gap-3">
+                 <button onClick={() => deleteHabit(habit.id)} className="text-gray-600 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
                  <button 
                    onClick={() => completeHabit(habit.id)}
                    disabled={habit.completed}
-                   className={`h-10 w-10 flex items-center justify-center rounded border transition-all ${habit.completed ? 'bg-green-900/20 border-green-900 text-green-700' : 'bg-black border-gray-600 text-gray-400 hover:bg-green-500 hover:text-black hover:border-green-400'}`}
+                   className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-all ${habit.completed ? 'bg-green-900/20 border-green-900 text-green-700' : 'bg-black border-gray-700 text-gray-400 hover:bg-green-500 hover:text-black hover:border-green-400 hover:scale-110'}`}
                  >
-                   <Check size={18} strokeWidth={3} />
+                   <Check size={24} strokeWidth={3} />
                  </button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* END DAY */}
-        <button 
-          onClick={endDay}
-          className="w-full mt-12 py-5 border border-red-900/50 text-red-500 hover:bg-red-900/10 rounded-xl text-xs font-bold tracking-[0.2em] uppercase transition-all"
-        >
-          Sleep
+        <button onClick={endDay} className="w-full mt-8 py-5 border-2 border-red-900/30 text-red-500 hover:bg-red-900/10 hover:border-red-500 rounded-xl text-xs font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2 group">
+          <Heart size={16} className="group-hover:animate-pulse"/> End Day & Sleep
         </button>
-        <p className="text-center mt-4 text-[10px] text-gray-600 font-mono">RESPAWN v1.2 // CONNECTED</p>
       </div>
     </div>
   );
