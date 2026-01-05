@@ -342,7 +342,7 @@ export default function LifeRPG() {
              onClick={endDay}
              className="w-full py-4 bg-red-900/30 hover:bg-red-900/50 border border-red-900/50 hover:border-red-500 text-red-500 rounded-lg text-xs uppercase font-bold tracking-[0.2em] transition-all flex items-center justify-center gap-3 group"
            >
-             <Skull size={16} className="group-hover:animate-pulse"/> End Day (Calculate Damage)
+             <Skull size={16} className="group-hover:animate-pulse"/> End Day
            </button>
            <p className="text-center text-[10px] text-gray-600 mt-2">
              WARNING: Unfinished quests deal {DAMAGE_PER_MISSED_HABIT} damage.
