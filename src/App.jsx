@@ -184,7 +184,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-gray-900 border-2 border-green-500 p-8 rounded-xl text-center">
-          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono">RESPAWN ONLINE</h1>
+          <h1 className="text-2xl font-bold text-green-500 mb-6 font-mono">RESPAWN</h1>
           <p className="text-gray-400 mb-4 text-sm">Enter Profile Name</p>
           <input 
             className="w-full bg-black border border-gray-700 text-white p-3 rounded mb-4 text-center uppercase tracking-widest focus:border-green-500 outline-none"
