@@ -329,9 +329,9 @@ export default function App() {
             <motion.div
               animate={{ y: [0, -10, 0] }}
               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-              className="p-5 bg-indigo-500/10 rounded-2xl border border-indigo-500/30 shadow-lg shadow-indigo-500/20"
+              className="flex items-center justify-center p-2"
             >
-              <Sparkles size={40} className="text-indigo-400" />
+              <img src="/icon.svg" alt="App Icon" className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
             </motion.div>
           </div>
           <h1 className="text-4xl font-black text-center text-stone-200 mb-2 font-retro tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-red-500">RESPAWN</h1>
