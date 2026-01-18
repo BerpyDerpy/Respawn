@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#dc2626;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Shield/Badge Base -->
+  <path d="M256 32 C 150 32 150 32 64 64 L 64 256 C 64 380 150 440 256 480 C 362 440 448 380 448 256 L 448 64 C 362 32 362 32 256 32 Z" fill="#1c1917" stroke="#fb923c" stroke-width="16"/>
+  
+  <!-- Flame Icon Interior -->
+  <path d="M256 128 C 256 128 192 200 192 272 C 192 316 220 352 256 352 C 292 352 320 316 320 272 C 320 200 256 128 256 128 Z M 256 160 C 256 160 290 220 290 270 C 290 295 275 315 256 315 C 237 315 222 295 222 270 C 222 220 256 160 256 160 Z" fill="url(#grad1)"/>
+  
+  <!-- Sparkles -->
+  <circle cx="160" cy="160" r="10" fill="#fb923c" opacity="0.8"/>
+  <circle cx="352" cy="160" r="10" fill="#fb923c" opacity="0.8"/>
+  <circle cx="256" cy="100" r="8" fill="#fdba74" opacity="0.6"/>
+</svg>
