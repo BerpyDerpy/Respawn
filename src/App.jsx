@@ -346,7 +346,7 @@ export default function App() {
             </motion.div>
           </div>
           <h1 className="text-4xl font-black text-center text-stone-200 mb-2 font-retro tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-red-500">RESPAWN</h1>
-          <p className="text-center text-stone-500 text-sm mb-8 font-medium">Kindle the fire within.</p>
+          <p className="text-center text-stone-500 text-sm mb-8 font-medium">ello buckeroo</p>
 
           <div className="space-y-4">
             <div className="relative">
