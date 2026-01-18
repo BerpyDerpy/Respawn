@@ -70,6 +70,7 @@ const StatCard = ({ statKey, value }) => {
   return (
     <motion.div
       whileHover={{ y: -2, scale: 1.02 }}
+      onMouseEnter={() => playHover()}
       className={`relative overflow-hidden p-3 rounded-xl border border-white/5 bg-stone-900/40 flex flex-col items-center justify-center gap-1 group`}
     >
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-white/5 to-transparent`} />
@@ -184,6 +185,11 @@ export default function App() {
   const [playLevelUp] = useSound(SOUNDS.levelup, { volume: 0.6 });
   const [playClick] = useSound(SOUNDS.click, { volume: 0.3 });
   const [playDelete] = useSound(SOUNDS.delete, { volume: 0.4 });
+
+  // New Sounds (derived from existing assets for efficiency)
+  const [playHover] = useSound(SOUNDS.click, { volume: 0.1, playbackRate: 2.0 }); // High frequency tick
+  const [playBack] = useSound(SOUNDS.click, { volume: 0.3, playbackRate: 0.8 }); // Lower thud
+  const [playSuccess] = useSound(SOUNDS.coin, { volume: 0.4, playbackRate: 1.2 }); // Higher coin chime
 
   // --- DATABASE LOGIC ---
   const loadProfile = async (inputName) => {
@@ -351,7 +357,8 @@ export default function App() {
             </div>
             <button
               className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-black py-4 rounded-xl text-sm uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-orange-900/20 disabled:opacity-50 disabled:cursor-not-allowed border border-orange-400/20"
-              onClick={() => loadProfile(usernameInput)}
+              onClick={() => { playSuccess(); loadProfile(usernameInput); }}
+              onMouseEnter={() => playHover()}
               disabled={isLoading}
             >
               {isLoading ? <span className="animate-pulse">Loading World...</span> : "Enter World"}
@@ -414,6 +421,7 @@ export default function App() {
             </div>
             <button
               onClick={() => { playClick(); setShowSettings(true); }}
+              onMouseEnter={() => playHover()}
               className="glass-button p-2.5 rounded-xl text-stone-400 hover:text-white"
             >
               <Settings size={20} />
@@ -481,6 +489,7 @@ export default function App() {
                 <button
                   key={stat}
                   onClick={() => { playClick(); setSelectedStat(stat); }}
+                  onMouseEnter={() => playHover()}
                   className={`
                      px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold border transition-all whitespace-nowrap
                      ${selectedStat === stat
@@ -510,6 +519,7 @@ export default function App() {
 
               <button
                 onClick={addHabit}
+                onMouseEnter={() => playHover()}
                 className="bg-orange-600 hover:bg-orange-500 text-white p-2 rounded-lg transition-colors shadow-lg shadow-orange-900/20"
               >
                 <Plus size={16} />
@@ -599,6 +609,7 @@ export default function App() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
             onClick={endDay}
+            onMouseEnter={() => playHover()}
             className="w-full py-5 bg-gradient-to-r from-red-900/20 to-orange-900/20 border border-red-900/40 text-red-500 hover:text-red-400 hover:border-red-500/40 rounded-2xl text-xs font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-3"
           >
             <Flame size={18} /> Complete Day
