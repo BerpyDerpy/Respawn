@@ -381,8 +381,31 @@ export default function App() {
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-gradient-to-tr from-orange-500 to-red-600 rounded-lg rotate-3 flex items-center justify-center font-retro text-xs shadow-lg shadow-orange-500/20 text-white border border-orange-400/30">
-                {gameData.level}
+              {/* Dynamic Level Badge */}
+              <div className="relative h-14 w-14 flex items-center justify-center mr-2">
+                {/* Badge Background */}
+                <div
+                  className={`
+                    absolute inset-0 rounded-xl rotate-45 shadow-lg border transition-all duration-500
+                    ${gameData.level >= 10
+                      ? 'bg-gradient-to-br from-amber-400 to-yellow-600 shadow-amber-500/30 border-amber-200/50'
+                      : gameData.level >= 5
+                        ? 'bg-gradient-to-br from-orange-400 to-red-600 shadow-orange-500/30 border-orange-200/50'
+                        : 'bg-gradient-to-br from-slate-700 to-slate-900 shadow-slate-500/20 border-slate-600/50'
+                    }
+                  `}
+                />
+
+                {/* Rank Icon Watermark */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-30 text-black rotate-0">
+                  {gameData.level >= 10 ? <Crown size={24} /> : gameData.level >= 5 ? <Flame size={24} /> : <Sparkles size={24} />}
+                </div>
+
+                {/* Level Text */}
+                <div className="relative z-10 flex flex-col items-center justify-center">
+                  <span className={`text-[10px] font-black uppercase tracking-widest mb-[-2px] ${gameData.level >= 10 ? 'text-amber-950' : 'text-stone-400'}`}>LVL</span>
+                  <span className={`text-xl font-black leading-none ${gameData.level >= 10 ? 'text-white drop-shadow-md' : 'text-white'}`}>{gameData.level}</span>
+                </div>
               </div>
               <div>
                 <h1 className="text-xl font-black text-stone-100 leading-tight">{gameData.name}</h1>
@@ -418,7 +441,7 @@ export default function App() {
             <div className="flex-1">
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5 text-slate-400">
                 <span>Experience</span>
-                <span className="text-indigo-400">{(gameData.xp / (gameData.level * 100)) * 100}%</span>
+                <span className="text-indigo-400">{(((gameData.xp / (gameData.level * 100)) * 100).toFixed(1))}%</span>
               </div>
               <div className="h-3 bg-stone-900 rounded-full overflow-hidden border border-stone-800 relative">
                 <motion.div
