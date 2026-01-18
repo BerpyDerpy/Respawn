@@ -323,8 +323,13 @@ export default function App() {
   // --- LOGIN SCREEN ---
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-slate-950">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950"></div>
+      <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-stone-950">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_var(--tw-gradient-stops))] from-orange-600/20 via-stone-950/80 to-stone-950"></div>
+        <motion.div
+          animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent"
+        />
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -337,7 +342,7 @@ export default function App() {
               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
               className="flex items-center justify-center p-2"
             >
-              <img src="/icon.svg" alt="App Icon" className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
+              <img src="/icon.svg" alt="App Icon" className="w-24 h-24 object-contain drop-shadow-[0_0_20px_rgba(249,115,22,0.6)]" />
             </motion.div>
           </div>
           <h1 className="text-4xl font-black text-center text-stone-200 mb-2 font-retro tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-red-500">RESPAWN</h1>
@@ -345,7 +350,7 @@ export default function App() {
 
           <div className="space-y-4">
             <div className="relative">
-              <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500" />
               <input
                 autoFocus
                 className="w-full bg-stone-950/50 border border-stone-800 text-stone-200 pl-12 pr-4 py-4 rounded-xl text-lg font-bold placeholder-stone-700 focus:border-orange-500 focus:bg-stone-900 outline-none transition-all"
